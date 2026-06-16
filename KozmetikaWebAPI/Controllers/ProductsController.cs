@@ -18,7 +18,7 @@ namespace KozmetikaWebAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
+        public async Task<IActionResult> GetProducts(
             [FromQuery] string? search,
             [FromQuery] string? brand,
             [FromQuery] int? categoryId,
@@ -38,6 +38,7 @@ namespace KozmetikaWebAPI.Controllers
 
             var query = _context.Products
                 .Include(p => p.Category)
+                .Where(p => p.IsActive)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -69,18 +70,29 @@ namespace KozmetikaWebAPI.Controllers
                 _ => query.OrderBy(p => p.Id)
             };
 
+            var totalItems = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
             var products = await query
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(products);
+            return Ok(new
+            {
+                totalItems,
+                totalPages,
+                pageNumber,
+                pageSize,
+                items = products
+            });
         }
 
         [HttpGet("brands")]
         public async Task<ActionResult<IEnumerable<string>>> GetBrands()
         {
             var brands = await _context.Products
+                .Where(p => p.IsActive)
                 .Select(p => p.Brand)
                 .Distinct()
                 .OrderBy(b => b)
@@ -94,7 +106,7 @@ namespace KozmetikaWebAPI.Controllers
         {
             var product = await _context.Products
                 .Include(p => p.Category)
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
 
             if (product == null)
             {
@@ -115,6 +127,8 @@ namespace KozmetikaWebAPI.Controllers
                 return BadRequest("Category with the provided ID does not exist.");
             }
 
+            product.IsActive = true;
+
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
 
@@ -134,7 +148,7 @@ namespace KozmetikaWebAPI.Controllers
 
             if (existingProduct == null)
             {
-                return NotFound("Proizvod nije pronađen.");
+                return NotFound("Product not found.");
             }
 
             var categoryExists = await _context.Categories.AnyAsync(c => c.Id == product.CategoryId);
@@ -151,6 +165,7 @@ namespace KozmetikaWebAPI.Controllers
             existingProduct.StockQuantity = product.StockQuantity;
             existingProduct.ImageUrl = product.ImageUrl;
             existingProduct.CategoryId = product.CategoryId;
+            existingProduct.IsActive = true;
 
             await _context.SaveChangesAsync();
 
@@ -168,7 +183,7 @@ namespace KozmetikaWebAPI.Controllers
                 return NotFound("Product not found.");
             }
 
-            _context.Products.Remove(product);
+            product.IsActive = false;
             await _context.SaveChangesAsync();
 
             return NoContent();

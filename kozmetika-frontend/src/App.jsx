@@ -19,6 +19,7 @@ function App() {
     const [showPaymentTransactions, setShowPaymentTransactions] = useState(false);
 
     const [showCheckout, setShowCheckout] = useState(false);
+    const [showAuth, setShowAuth] = useState(false);
 
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('loggedUser');
@@ -49,6 +50,7 @@ function App() {
     const [sortBy, setSortBy] = useState('');
 
     const [pageNumber, setPageNumber] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const pageSize = 6;
 
     const [loading, setLoading] = useState(false);
@@ -92,7 +94,9 @@ function App() {
                 }
             });
 
-            setProducts(response.data);
+            setProducts(response.data.items);
+            setTotalPages(response.data.totalPages);
+
         } catch (err) {
             console.error(err);
             setError('Products could not be loaded.');
@@ -529,7 +533,7 @@ function App() {
     const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    if (!user) {
+    if (!user && showAuth) {
         return (
             <div className="auth-page">
                 <div className="auth-card">
@@ -567,6 +571,13 @@ function App() {
                     >
                         {authMode === 'login' ? 'No account? Register' : 'Already have an account? Log in'}
                     </button>
+
+                    <button
+                        className="auth-switch-button"
+                        onClick={() => setShowAuth(false)}
+                    >
+                        Continue as guest
+                    </button>
                 </div>
             </div>
         );
@@ -579,12 +590,12 @@ function App() {
                     <div>
                         <div className="brand-logo">LUMÉA BEAUTY</div>
                         <p className="user-info">
-                            Logged in as <strong>{user.username}</strong> ({user.role})
+                            {user ? <>Logged in as <strong>{user.username}</strong> ({user.role})</> : <>Browsing as <strong>Guest</strong></>}
                         </p>
                     </div>
 
                     <div className="top-actions">
-                        {user.role !== 'Admin' && user.role !== 'Employee' && (
+                        {user && user.role !== 'Admin' && user.role !== 'Employee' && (
                             <button
                                 className="orders-button"
                                 onClick={() => {
@@ -596,7 +607,7 @@ function App() {
                             </button>
                         )}
 
-                        {(user.role === 'Admin' || user.role === 'Employee') && (
+                        {(user?.role === 'Admin' || user?.role === 'Employee') && (
                             <>
                                 <button
                                     className="orders-button"
@@ -620,15 +631,23 @@ function App() {
                             </>
                         )}
 
-                        {user.role === 'Admin' && (
+                        {user?.role === 'Admin' && (
                             <button className="admin-button" onClick={() => setShowAdd(true)}>
                                 + Add Product
                             </button>
                         )}
 
-                        <button className="logout-button" onClick={handleLogout}>
-                            Logout
-                        </button>
+                        {!user && (
+                            <button className="admin-button" onClick={() => setShowAuth(true)}>
+                                Login / Register
+                            </button>
+                        )}
+
+                        {user && (
+                            <button className="logout-button" onClick={handleLogout}>
+                                Logout
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -709,7 +728,7 @@ function App() {
                 </section>
             </header>
 
-            {showAdminOrders && (user.role === 'Admin' || user.role === 'Employee') && (
+            {showAdminOrders && (user?.role === 'Admin' || user?.role === 'Employee') && (
                 <section className="orders-section">
                     <h2>Manage Orders</h2>
                     <p className="section-note">Here staff can see customer orders and update their status.</p>
@@ -763,7 +782,7 @@ function App() {
                 </section>
             )}
 
-            {showPaymentTransactions && (user.role === 'Admin' || user.role === 'Employee') && (
+            {showPaymentTransactions && (user?.role === 'Admin' || user?.role === 'Employee') && (
                 <section className="orders-section">
                     <h2>Payment Transactions</h2>
                     <p className="section-note">Here staff can review Stripe payment transactions.</p>
@@ -810,7 +829,7 @@ function App() {
                 </section>
             )}
 
-            {showOrders && user.role !== 'Admin' && user.role !== 'Employee' && (
+            {showOrders && user && user.role !== 'Admin' && user.role !== 'Employee' && (
                 <section className="orders-section">
                     <h2>My Orders</h2>
                     <p className="section-note">Here customer can see personal order history.</p>
@@ -1012,7 +1031,7 @@ function App() {
                                 Add to cart
                             </button>
 
-                            {user.role === 'Admin' && (
+                            {user?.role === 'Admin' && (
                                 <div className="admin-product-actions">
                                     <button onClick={() => openEditProduct(product)}>
                                         Edit
@@ -1033,11 +1052,12 @@ function App() {
                     Previous
                 </button>
 
-                <span>Page {pageNumber}</span>
+                <span>Page {pageNumber} of {totalPages}</span>
 
-                <button disabled={products.length < pageSize} onClick={() => setPageNumber(pageNumber + 1)}>
+                <button disabled={pageNumber >= totalPages} onClick={() => setPageNumber(pageNumber + 1)}>
                     Next
                 </button>
+
             </div>
 
             {showCheckout && (
