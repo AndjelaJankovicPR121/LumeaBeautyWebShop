@@ -1,0 +1,14 @@
+.vs/
+bin/
+obj/
+
+node_modules/
+
+*.user
+*.suo
+*.cache
+
+appsettings.Development.json
+
+KozmetikaFrontend/node_modules/
+kozmetika-frontend/node_modules/
