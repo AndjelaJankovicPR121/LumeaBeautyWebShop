@@ -128,6 +128,7 @@ namespace KozmetikaWebAPI.Controllers
             }
 
             product.IsActive = true;
+            product.CreatedAt = DateTime.Now;
 
             _context.Products.Add(product);
             await _context.SaveChangesAsync();

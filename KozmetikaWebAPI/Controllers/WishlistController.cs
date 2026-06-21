@@ -57,7 +57,8 @@ namespace KozmetikaWebAPI.Controllers
             var item = new WishlistItem
             {
                 UserId = userId,
-                ProductId = productId
+                ProductId = productId,
+                CreatedAt = DateTime.Now
             };
 
             _context.WishlistItems.Add(item);

@@ -39,10 +39,7 @@ function App() {
         return savedCart ? JSON.parse(savedCart) : [];
     });
 
-    const [wishlistItems, setWishlistItems] = useState(() => {
-        const savedWishlist = localStorage.getItem('wishlistItems');
-        return savedWishlist ? JSON.parse(savedWishlist) : [];
-    });
+    const [wishlistItems, setWishlistItems] = useState([]);
 
     const [search, setSearch] = useState('');
     const [brand, setBrand] = useState('');
@@ -126,6 +123,26 @@ function App() {
         }
     };
 
+    const loadWishlist = async () => {
+        if (!user || user.role === 'Admin' || user.role === 'Employee') {
+            setWishlistItems([]);
+            return;
+        }
+
+        try {
+            const response = await axios.get(`${apiBaseUrl}/Wishlist`, getAuthConfig());
+
+            const productsFromWishlist = response.data
+                .map(item => item.product)
+                .filter(product => product != null);
+
+            setWishlistItems(productsFromWishlist);
+        } catch (err) {
+            console.error(err);
+            alert('Wishlist could not be loaded.');
+        }
+    };
+
     const loadAdminOrders = async () => {
         try {
             const response = await axios.get(`${apiBaseUrl}/Orders`, getAuthConfig());
@@ -176,18 +193,16 @@ function App() {
     }, [cartItems]);
 
     useEffect(() => {
-        localStorage.setItem('wishlistItems', JSON.stringify(wishlistItems));
-    }, [wishlistItems]);
-
-    useEffect(() => {
         if (user) {
             localStorage.setItem('loggedUser', JSON.stringify(user));
             loadOrders();
+            loadWishlist();
         } else {
             localStorage.removeItem('loggedUser');
             setOrders([]);
             setAdminOrders([]);
             setPaymentTransactions([]);
+            setWishlistItems([]);
         }
     }, [user]);
 
@@ -516,13 +531,31 @@ function App() {
         }
     };
 
-    const toggleWishlist = (product) => {
+    const toggleWishlist = async (product) => {
+        if (!user) {
+            alert('You must be logged in to use wishlist.');
+            setShowAuth(true);
+            return;
+        }
+
+        if (user.role === 'Admin' || user.role === 'Employee') {
+            alert('Wishlist is available for customers.');
+            return;
+        }
+
         const exists = wishlistItems.some(item => item.id === product.id);
 
-        if (exists) {
-            setWishlistItems(wishlistItems.filter(item => item.id !== product.id));
-        } else {
-            setWishlistItems([...wishlistItems, product]);
+        try {
+            if (exists) {
+                await axios.delete(`${apiBaseUrl}/Wishlist/${product.id}`, getAuthConfig());
+            } else {
+                await axios.post(`${apiBaseUrl}/Wishlist/${product.id}`, {}, getAuthConfig());
+            }
+
+            await loadWishlist();
+        } catch (err) {
+            console.error(err);
+            alert('Wishlist action failed.');
         }
     };
 
